@@ -1,16 +1,173 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Piglet Invaders</title>
+    <title>Pig Invaders</title>
     <style>
-        canvas { background: #000; display: block; margin: 0 auto; }
+        body {
+            background: linear-gradient(to bottom, #222, #444);
+            text-align: center;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+
+        canvas {
+            background: radial-gradient(circle, #2c3e50, #1a1a1a);
+            border: 4px solid white;
+            display: block;
+            margin: 20px auto;
+            box-shadow: 0px 0px 20px rgba(255, 255, 255, 0.2);
+        }
+
+        #gameOverScreen, #winScreen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 40px;
+            display: none;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0px 0px 20px white;
+        }
     </style>
 </head>
 <body>
-    <canvas id="gameCanvas" width="600" height="800"></canvas>
-    <script src="game.js"></script>
+    <h1>🐷 Pig Invaders 🚀</h1>
+    <p>Use <b>Arrow Keys</b> to move, <b>Space</b> to shoot!</p>
+    
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <div id="gameOverScreen">THE PIG INVADERS HAVE TAKEN OVER!<br>Press <b>R</b> to Try Again!</div>
+    <div id="winScreen">🎉 CONGRATULATIONS! YOU SAVED THE WORLD FROM THE PIG INVADERS! 🎉<br>Press <b>R</b> to Play Again!</div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const chickenNuggetImg = new Image();
+        chickenNuggetImg.src = 'chicken_nugget.png';  
+        const pigletImg = new Image();
+        pigletImg.src = 'piglet.png';  
+
+        let player, bullets, piglets, pigletDX, pigletDY, gameOver, gameWin;
+
+        function resetGame() {
+            player = { x: canvas.width / 2 - 25, y: canvas.height - 60, width: 50, height: 50, speed: 7 };
+            bullets = [];
+            piglets = [];
+            pigletDX = 3; // Increased speed
+            pigletDY = 20; // Increased descent speed
+            gameOver = false;
+            gameWin = false;
+
+            document.getElementById('gameOverScreen').style.display = 'none';
+            document.getElementById('winScreen').style.display = 'none';
+
+            for (let row = 0; row < 4; row++) {
+                for (let col = 0; col < 8; col++) {
+                    piglets.push({ x: 60 * col + 50, y: 60 * row + 30, width: 40, height: 40, alive: true });
+                }
+            }
+        }
+
+        let keys = {};
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            if (e.key === ' ' && bullets.length < 5) {
+                bullets.push({ x: player.x + player.width / 2 - 2, y: player.y, width: 5, height: 10, speed: 10 });
+            }
+        });
+        document.addEventListener('keyup', (e) => keys[e.key] = false);
+
+        function gameLoop() {
+            if (gameOver) {
+                document.getElementById('gameOverScreen').style.display = 'block';
+                return;
+            }
+            if (gameWin) {
+                document.getElementById('winScreen').style.display = 'block';
+                return;
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            let hitLeftEdge = false, hitRightEdge = false;
+
+            piglets.forEach(p => {
+                if (p.alive) {
+                    if (p.x + p.width >= canvas.width) hitRightEdge = true;
+                    if (p.x <= 0) hitLeftEdge = true;
+                }
+            });
+
+            if (hitRightEdge) pigletDX = -Math.abs(pigletDX);
+            if (hitLeftEdge) pigletDX = Math.abs(pigletDX);
+
+            piglets.forEach(p => {
+                if (p.alive) {
+                    p.x += pigletDX;
+                }
+            });
+
+            if (hitRightEdge || hitLeftEdge) {
+                piglets.forEach(p => {
+                    if (p.alive) p.y += pigletDY;
+                });
+            }
+
+            if (piglets.some(p => p.alive && p.y + p.height >= player.y)) {
+                gameOver = true;
+            }
+
+            piglets.forEach(p => {
+                if (p.alive) ctx.drawImage(pigletImg, p.x, p.y, p.width, p.height);
+            });
+
+            if (keys['ArrowLeft']) player.x = Math.max(0, player.x - player.speed);
+            if (keys['ArrowRight']) player.x = Math.min(canvas.width - player.width, player.x + player.speed);
+
+            bullets.forEach((b, i) => {
+                b.y -= b.speed;
+                ctx.fillStyle = 'yellow';
+                ctx.fillRect(b.x, b.y, b.width, b.height);
+                if (b.y < 0) bullets.splice(i, 1);
+
+                piglets.forEach(p => {
+                    if (p.alive && b.x < p.x + p.width && b.x + b.width > p.x && b.y < p.y + p.height && b.y + b.height > p.y) {
+                        p.alive = false;
+                        bullets.splice(i, 1);
+                    }
+                });
+            });
+
+            if (piglets.every(p => !p.alive)) {
+                gameWin = true;
+            }
+
+            ctx.drawImage(chickenNuggetImg, player.x, player.y, player.width, player.height);
+            requestAnimationFrame(gameLoop);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 'r') {
+                resetGame();
+                gameLoop();
+            }
+        });
+
+        let assetsLoaded = 0;
+        const totalAssets = 2;
+
+        chickenNuggetImg.onload = pigletImg.onload = () => {
+            assetsLoaded++;
+            if (assetsLoaded === totalAssets) {
+                resetGame();
+                gameLoop();
+            }
+        };
+    </script>
 </body>
 </html>
